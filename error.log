@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "G:\Projects\neco-payment-manager-BE\debug_server.py", line 2, in <module>
+    from app import main
+  File "G:\Projects\neco-payment-manager-BE\app\main.py", line 3, in <module>
+    from app.infrastructure import models
+  File "G:\Projects\neco-payment-manager-BE\app\infrastructure\models.py", line 31
+    )
+     ^
+IndentationError: unindent does not match any outer indentation level
