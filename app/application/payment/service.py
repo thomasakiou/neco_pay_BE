@@ -9,87 +9,57 @@ class PaymentService:
         self.repository = repository
         self.db = db
 
-    def generate_payments(self, payment_title: str, numb_of_nights: int, local_runs: float) -> int:
-        postings = self.db.query(PostingModel).all()
-        parameters = self.db.query(ParameterModel).all()
-        distances = self.db.query(DistanceModel).all()
-        staff_list = self.db.query(StaffModel).all()
+    def upload_payments(self, file_content: str) -> int:
+        import csv
+        from io import StringIO
         
-        # Create lookup maps for performance
-        staff_map = {s.staff_id: s for s in staff_list if s.staff_id}
+        f = StringIO(file_content)
+        reader = csv.DictReader(f)
         
-        # Parameter lookup: Key = last 2 digits of contiss
-        param_map = {}
-        for p in parameters:
-            if p.contiss:
-                key = p.contiss.strip()[-2:] # Last 2 digits
-                param_map[key] = p
-
-        # Distance lookup: Key = (source, target)
-        dist_map = {}
-        for d in distances:
-            if d.source and d.target:
-                dist_map[(d.source.strip().lower(), d.target.strip().lower())] = d
+        # CSV Headers: File_No,Name,Conraiss,Amt_per_night,DTA,Transport,Numb_of_nights,Total,Total_Netpay,Payment_Title
+        # Map to Payment Model:
+        # File_No -> file_no
+        # Name -> name
+        # Conraiss -> conraiss
+        # Amt_per_night -> amount_per_night
+        # DTA -> dta
+        # Transport -> transport
+        # Numb_of_nights -> numb_of_nights
+        # Total -> total
+        # Total_Netpay -> total_netpay
+        # Payment_Title -> payment_title
         
         new_payments = []
-        
-        for posting in postings:
-            # 1. Link Staff & Posting (Staff.staff_id == Posting.file_no)
-            staff = staff_map.get(posting.file_no)
-            
-            # Logic: Need both posting and staff link? 
-            # Request says: Per_No(from staff table). If no staff link, we might not have Per_No or Bank info.
-            # Assuming we generate only if link exists or at least partially?
-            # Let's try to populate what we can.
-            
-            per_no = staff.staff_id if staff else None
-            bank_account = staff.account_no if staff else None
-            
-            # 2. Get Amount Per Night (Parameter.pernight where last 2 digits contiss = conraiss in posting)
-            amount_per_night = 0.0
-            km_rate = 0.0
-            
-            if posting.conraiss:
-                conraiss_suffix = posting.conraiss.strip()[-2:]
-                param = param_map.get(conraiss_suffix)
-                if param:
-                    amount_per_night = param.pernight or 0.0
-                    km_rate = param.kilometer or 0.0
+        for row in reader:
+            # Handle potential empty strings or missing fields gracefully
+            def safe_float(val):
+                if not val: return 0.0
+                try: return float(val)
+                except ValueError: return 0.0
 
-            # 3. Get Transport (Parameter.kilometer * Distance.distance)
-            transport = 0.0
-            distance_val = 0.0
-            
-            if posting.station and posting.posting:
-                source = posting.station.strip().lower()
-                target = posting.posting.strip().lower()
-                
-                dist_obj = dist_map.get((source, target))
-                if dist_obj:
-                     distance_val = dist_obj.distance or 0.0
-                else: 
-                     # Try reversed? Or just 0. Usually distance is directional or symmetric defined in DB.
-                     pass
-            
-            transport = km_rate * distance_val
-            
-            # 4. NetPay
-            # netpay = transport + local_runs + (numb_of_nights * amount_per_night)
-            netpay = transport + local_runs + (numb_of_nights * amount_per_night)
+            def safe_int(val):
+                if not val: return 0
+                try: return int(val)
+                except ValueError: return 0
 
             payment = Payment(
                 id=None,
-                per_no=per_no,
-                name=posting.name, # name (from posting table)
-                station=posting.station,
-                posting=posting.posting,
-                bank_account=bank_account,
-                transport=transport,
-                local_runs=local_runs,
-                numb_of_nights=numb_of_nights,
-                amount_per_night=amount_per_night,
-                netpay=netpay,
-                payment_title=payment_title,
+                file_no=row.get('File_No'),
+                name=row.get('Name'),
+                conraiss=row.get('Conraiss'),
+                amount_per_night=safe_float(row.get('Amt_per_night')),
+                dta=safe_float(row.get('DTA')),
+                transport=safe_float(row.get('Transport')),
+                numb_of_nights=safe_int(row.get('Numb_of_nights')),
+                total=safe_float(row.get('Total')),
+                total_netpay=safe_float(row.get('Total_Netpay')),
+                payment_title=row.get('Payment_Title'),
+                bank=row.get('Bank'),
+                account_numb=row.get('Account_Numb'),
+                tax=safe_float(row.get('Tax')),
+                fuel_local=safe_float(row.get('Fuel-Local') or row.get('Fuel_Local')), 
+                station=row.get('Station'),
+                posting=row.get('Posting'),
                 created_at=None
             )
             new_payments.append(payment)

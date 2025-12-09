@@ -3,17 +3,22 @@ from typing import Optional
 from datetime import datetime
 
 class PaymentBase(BaseModel):
-    per_no: Optional[str] = None
+    file_no: Optional[str] = None
     name: Optional[str] = None
+    conraiss: Optional[str] = None
+    amount_per_night: Optional[float] = None
+    dta: Optional[float] = None
+    transport: Optional[float] = None
+    numb_of_nights: Optional[int] = None
+    total: Optional[float] = None
+    total_netpay: Optional[float] = None
+    payment_title: Optional[str] = None
+    bank: Optional[str] = None
+    account_numb: Optional[str] = None
+    tax: Optional[float] = None
+    fuel_local: Optional[float] = None
     station: Optional[str] = None
     posting: Optional[str] = None
-    bank_account: Optional[str] = None
-    transport: Optional[float] = None
-    local_runs: Optional[float] = None
-    numb_of_nights: Optional[int] = None
-    amount_per_night: Optional[float] = None
-    netpay: Optional[float] = None
-    payment_title: Optional[str] = None
 
 class CreatePaymentDTO(PaymentBase):
     pass
@@ -21,10 +26,7 @@ class CreatePaymentDTO(PaymentBase):
 class UpdatePaymentDTO(PaymentBase):
     pass
 
-class GeneratePaymentDTO(BaseModel):
-    payment_title: str
-    numb_of_nights: int
-    local_runs: float
+
 
 class PaymentDTO(PaymentBase):
     id: int

@@ -10,37 +10,46 @@ class PaymentModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     
-    # Generated / Calculated Fields
-    per_no = Column(String, nullable=True) # From Staff
-    name = Column(String, nullable=True)   # From Posting
-    station = Column(String, nullable=True)# From Posting
-    posting = Column(String, nullable=True)# From Posting
-    bank_account = Column(String, nullable=True) # From Staff
+    file_no = Column(String, nullable=True)     # File_No
+    name = Column(String, nullable=True)        # Name
+    conraiss = Column(String, nullable=True)    # Conraiss
+    amount_per_night = Column(Float, nullable=True) # Amt_per_night
+    dta = Column(Float, nullable=True)          # DTA
+    transport = Column(Float, nullable=True)    # Transport
+    numb_of_nights = Column(Integer, nullable=True) # Numb_of_nights
+    total = Column(Float, nullable=True)        # Total
+    total_netpay = Column(Float, nullable=True) # Total_Netpay
+    payment_title = Column(String, nullable=True) # Payment_Title
     
-    transport = Column(Float, nullable=True) # Calculated
-    local_runs = Column(Float, nullable=True) # Input
-    numb_of_nights = Column(Integer, nullable=True) # Input
-    amount_per_night = Column(Float, nullable=True) # From Param
-    
-    netpay = Column(Float, nullable=True) # Calculated
-    payment_title = Column(String, nullable=True) # Input
+    bank = Column(String, nullable=True)        # Bank
+    account_numb = Column(String, nullable=True)# Account_Numb
+    tax = Column(Float, nullable=True)          # Tax
+    fuel_local = Column(Float, nullable=True)   # Fuel-Local
+    station = Column(String, nullable=True)     # Station
+    posting = Column(String, nullable=True)     # Posting
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     def to_entity(self) -> Payment:
         return Payment(
             id=self.id,
-            per_no=self.per_no,
+            file_no=self.file_no,
             name=self.name,
+            conraiss=self.conraiss,
+            amount_per_night=self.amount_per_night,
+            dta=self.dta,
+            transport=self.transport,
+            numb_of_nights=self.numb_of_nights,
+            total=self.total,
+            total_netpay=self.total_netpay,
+            payment_title=self.payment_title,
+            bank=self.bank,
+            account_numb=self.account_numb,
+            tax=self.tax,
+            fuel_local=self.fuel_local,
+
             station=self.station,
             posting=self.posting,
-            bank_account=self.bank_account,
-            transport=self.transport,
-            local_runs=self.local_runs,
-            numb_of_nights=self.numb_of_nights,
-            amount_per_night=self.amount_per_night,
-            netpay=self.netpay,
-            payment_title=self.payment_title,
             created_at=self.created_at
         )
 
@@ -48,17 +57,23 @@ class PaymentModel(Base):
     def from_entity(payment: Payment) -> "PaymentModel":
         return PaymentModel(
             id=payment.id,
-            per_no=payment.per_no,
+            file_no=payment.file_no,
             name=payment.name,
+            conraiss=payment.conraiss,
+            amount_per_night=payment.amount_per_night,
+            dta=payment.dta,
+            transport=payment.transport,
+            numb_of_nights=payment.numb_of_nights,
+            total=payment.total,
+            total_netpay=payment.total_netpay,
+            payment_title=payment.payment_title,
+            bank=payment.bank,
+            account_numb=payment.account_numb,
+            tax=payment.tax,
+            fuel_local=payment.fuel_local,
+
             station=payment.station,
             posting=payment.posting,
-            bank_account=payment.bank_account,
-            transport=payment.transport,
-            local_runs=payment.local_runs,
-            numb_of_nights=payment.numb_of_nights,
-            amount_per_night=payment.amount_per_night,
-            netpay=payment.netpay,
-            payment_title=payment.payment_title,
             created_at=payment.created_at
         )
 

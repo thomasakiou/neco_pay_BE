@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import SessionLocal
 from app.infrastructure.repository import PaymentRepository
-from app.application.payment.dtos import PaymentDTO, CreatePaymentDTO, UpdatePaymentDTO, GeneratePaymentDTO
+from app.application.payment.dtos import PaymentDTO, CreatePaymentDTO, UpdatePaymentDTO
 from app.application.payment.service import PaymentService
 from app.domain.payment import Payment
 
@@ -67,11 +67,12 @@ def delete_payment(id: int, repo: PaymentRepository = Depends(get_repository)):
         raise HTTPException(status_code=404, detail="Payment not found")
     return
 
-@router.post("/generate", status_code=201)
-def generate_payments(dto: GeneratePaymentDTO, service: PaymentService = Depends(get_service)):
-    count = service.generate_payments(
-        payment_title=dto.payment_title, 
-        numb_of_nights=dto.numb_of_nights, 
-        local_runs=dto.local_runs
-    )
-    return {"message": f"Successfully generated {count} payments"}
+from fastapi import File, UploadFile
+
+@router.post("/upload", status_code=201)
+async def upload_payments(file: UploadFile = File(...), service: PaymentService = Depends(get_service)):
+    content = await file.read()
+    # Decode string
+    content_str = content.decode('utf-8')
+    count = service.upload_payments(content_str)
+    return {"message": f"Successfully uploaded {count} payments"}
