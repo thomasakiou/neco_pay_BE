@@ -5,9 +5,10 @@ from app.infrastructure.repository import PaymentRepository
 from app.infrastructure.models import PostingModel, StaffModel, ParameterModel, DistanceModel
 
 class PaymentService:
-    def __init__(self, repository: PaymentRepository, db: Session):
+    def __init__(self, repository: PaymentRepository, db: Session, staff_repository=None):
         self.repository = repository
         self.db = db
+        self.staff_repository = staff_repository
 
     def upload_payments(self, file_content: str) -> int:
         import csv
@@ -65,6 +66,13 @@ class PaymentService:
             new_payments.append(payment)
 
         self.repository.bulk_save(new_payments)
+        
+        # Update staff posted status to 'Y' for all staff in the payment
+        if self.staff_repository:
+            for payment in new_payments:
+                if payment.file_no:
+                    self.staff_repository.update_posted_status_by_file_no(payment.file_no, "Y")
+        
         return len(new_payments)
 
     def delete_all(self):

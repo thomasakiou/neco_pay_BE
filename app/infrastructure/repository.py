@@ -115,6 +115,15 @@ class StaffRepository:
         self.db.query(StaffModel).update({StaffModel.posted: "N"})
         self.db.commit()
 
+    def update_posted_status_by_file_no(self, file_no: str, posted_status: str = "Y") -> bool:
+        """Update the posted status for a staff member by their file_no (staff_id)"""
+        staff = self.db.query(StaffModel).filter(StaffModel.staff_id == file_no).first()
+        if staff:
+            staff.posted = posted_status
+            self.db.commit()
+            return True
+        return False
+
     def update(self, id: int, staff: Staff) -> Optional[Staff]:
         existing = self.db.query(StaffModel).filter(StaffModel.id == id).first()
         if not existing:

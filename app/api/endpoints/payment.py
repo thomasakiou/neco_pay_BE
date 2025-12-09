@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import SessionLocal
-from app.infrastructure.repository import PaymentRepository
+from app.infrastructure.repository import PaymentRepository, StaffRepository
 from app.application.payment.dtos import PaymentDTO, CreatePaymentDTO, UpdatePaymentDTO
 from app.application.payment.service import PaymentService
 from app.domain.payment import Payment
@@ -20,8 +20,11 @@ def get_db():
 def get_repository(db: Session = Depends(get_db)):
     return PaymentRepository(db)
 
-def get_service(repo: PaymentRepository = Depends(get_repository), db: Session = Depends(get_db)):
-    return PaymentService(repo, db)
+def get_staff_repository(db: Session = Depends(get_db)):
+    return StaffRepository(db)
+
+def get_service(repo: PaymentRepository = Depends(get_repository), db: Session = Depends(get_db), staff_repo: StaffRepository = Depends(get_staff_repository)):
+    return PaymentService(repo, db, staff_repo)
 
 @router.get("/", response_model=List[PaymentDTO])
 def list_payments(skip: int = 0, limit: int = 100000, repo: PaymentRepository = Depends(get_repository)):
