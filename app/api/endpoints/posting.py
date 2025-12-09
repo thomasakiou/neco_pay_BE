@@ -7,6 +7,8 @@ from app.infrastructure.repository import PostingRepository
 from app.application.posting.dtos import PostingDTO, CreatePostingDTO, UpdatePostingDTO
 from app.application.posting.service import PostingService
 from app.domain.posting import Posting
+from app.application.auth.dependencies import get_current_user
+from app.domain.user import User
 
 router = APIRouter()
 
@@ -24,11 +26,11 @@ def get_service(repo: PostingRepository = Depends(get_repository)):
     return PostingService(repo)
 
 @router.get("/", response_model=List[PostingDTO])
-def list_postings(skip: int = 0, limit: int = 100000, repo: PostingRepository = Depends(get_repository)):
+def list_postings(skip: int = 0, limit: int = 100000, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     return repo.list(skip, limit)
 
 @router.post("/", response_model=PostingDTO)
-def create_posting(dto: CreatePostingDTO, repo: PostingRepository = Depends(get_repository)):
+def create_posting(dto: CreatePostingDTO, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     posting = Posting(
         id=None,
         created_at=None,
@@ -37,14 +39,14 @@ def create_posting(dto: CreatePostingDTO, repo: PostingRepository = Depends(get_
     return repo.save(posting)
 
 @router.get("/{id}", response_model=PostingDTO)
-def get_posting(id: int, repo: PostingRepository = Depends(get_repository)):
+def get_posting(id: int, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     posting = repo.get_by_id(id)
     if not posting:
         raise HTTPException(status_code=404, detail="Posting not found")
     return posting
 
 @router.put("/{id}", response_model=PostingDTO)
-def update_posting(id: int, dto: UpdatePostingDTO, repo: PostingRepository = Depends(get_repository)):
+def update_posting(id: int, dto: UpdatePostingDTO, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     posting = Posting(
         id=id,
         created_at=None,
@@ -56,24 +58,24 @@ def update_posting(id: int, dto: UpdatePostingDTO, repo: PostingRepository = Dep
     return updated_posting
 
 @router.delete("/", status_code=204)
-def delete_all_postings(repo: PostingRepository = Depends(get_repository)):
+def delete_all_postings(repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     repo.delete_all()
     return
 
 @router.delete("/{id}", status_code=204)
-def delete_posting(id: int, repo: PostingRepository = Depends(get_repository)):
+def delete_posting(id: int, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     success = repo.delete(id)
     if not success:
         raise HTTPException(status_code=404, detail="Posting not found")
     return
 
 @router.post("/upload")
-async def upload_postings(file: UploadFile = File(...), service: PostingService = Depends(get_service)):
+async def upload_postings(file: UploadFile = File(...), service: PostingService = Depends(get_service), current_user: User = Depends(get_current_user)):
     count = await service.process_upload(file)
     return {"message": f"Successfully processed {count} records"}
 
 @router.post("/generate", status_code=201)
-def generate_payments_from_postings(payment_title: str, numb_of_nights: int, local_runs: float, service: PostingService = Depends(get_service)):
+def generate_payments_from_postings(payment_title: str, numb_of_nights: int, local_runs: float, service: PostingService = Depends(get_service), current_user: User = Depends(get_current_user)):
     """
     Generate payments based on all postings.
     Same logic as /payments/generate

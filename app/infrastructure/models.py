@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from app.domain.payment import Payment
+from app.domain.user import User
 
 Base = declarative_base()
 
@@ -75,6 +76,37 @@ class PaymentModel(Base):
             station=payment.station,
             posting=payment.posting,
             created_at=payment.created_at
+        )
+
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, default="admin")
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    def to_entity(self) -> User:
+        return User(
+            id=self.id,
+            username=self.username,
+            hashed_password=self.hashed_password,
+            role=self.role,
+            active=self.active,
+            created_at=self.created_at
+        )
+
+    @staticmethod
+    def from_entity(user: User) -> "UserModel":
+        return UserModel(
+            id=user.id,
+            username=user.username,
+            hashed_password=user.hashed_password,
+            role=user.role,
+            active=user.active,
+            created_at=user.created_at
         )
 
 from app.domain.staff import Staff

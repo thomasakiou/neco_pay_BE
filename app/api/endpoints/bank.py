@@ -7,6 +7,8 @@ from app.infrastructure.repository import BankRepository
 from app.application.bank.dtos import BankDTO, CreateBankDTO, UpdateBankDTO
 from app.application.bank.service import BankService
 from app.domain.bank import Bank
+from app.application.auth.dependencies import get_current_user
+from app.domain.user import User
 
 router = APIRouter()
 
@@ -24,11 +26,11 @@ def get_service(repo: BankRepository = Depends(get_repository)):
     return BankService(repo)
 
 @router.get("/", response_model=List[BankDTO])
-def list_banks(skip: int = 0, limit: int = 100000, repo: BankRepository = Depends(get_repository)):
+def list_banks(skip: int = 0, limit: int = 100000, repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     return repo.list(skip, limit)
 
 @router.post("/", response_model=BankDTO)
-def create_bank(dto: CreateBankDTO, repo: BankRepository = Depends(get_repository)):
+def create_bank(dto: CreateBankDTO, repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     bank = Bank(
         id=None,
         created_at=None,
@@ -37,14 +39,14 @@ def create_bank(dto: CreateBankDTO, repo: BankRepository = Depends(get_repositor
     return repo.save(bank)
 
 @router.get("/{id}", response_model=BankDTO)
-def get_bank(id: int, repo: BankRepository = Depends(get_repository)):
+def get_bank(id: int, repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     bank = repo.get_by_id(id)
     if not bank:
         raise HTTPException(status_code=404, detail="Bank not found")
     return bank
 
 @router.put("/{id}", response_model=BankDTO)
-def update_bank(id: int, dto: UpdateBankDTO, repo: BankRepository = Depends(get_repository)):
+def update_bank(id: int, dto: UpdateBankDTO, repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     bank = Bank(
         id=id,
         created_at=None,
@@ -56,18 +58,18 @@ def update_bank(id: int, dto: UpdateBankDTO, repo: BankRepository = Depends(get_
     return updated_bank
 
 @router.delete("/", status_code=204)
-def delete_all_banks(repo: BankRepository = Depends(get_repository)):
+def delete_all_banks(repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     repo.delete_all()
     return
 
 @router.delete("/{id}", status_code=204)
-def delete_bank(id: int, repo: BankRepository = Depends(get_repository)):
+def delete_bank(id: int, repo: BankRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     success = repo.delete(id)
     if not success:
         raise HTTPException(status_code=404, detail="Bank not found")
     return
 
 @router.post("/upload")
-async def upload_banks(file: UploadFile = File(...), service: BankService = Depends(get_service)):
+async def upload_banks(file: UploadFile = File(...), service: BankService = Depends(get_service), current_user: User = Depends(get_current_user)):
     count = await service.process_upload(file)
     return {"message": f"Successfully processed {count} records"}

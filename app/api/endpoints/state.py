@@ -8,6 +8,8 @@ from app.application.state.service import StateService
 from dataclasses import dataclass
 from pydantic import BaseModel
 from typing import Optional
+from app.application.auth.dependencies import get_current_user
+from app.domain.user import User
 
 router = APIRouter()
 
@@ -39,13 +41,13 @@ def get_service(db: Session = Depends(get_db)) -> StateService:
     return StateService(repository)
 
 @router.post("/", response_model=StateResponse)
-def create_state(state: StateCreate, service: StateService = Depends(get_service)):
+def create_state(state: StateCreate, service: StateService = Depends(get_service), current_user: User = Depends(get_current_user)):
     from app.domain.state import State
     new_state = State(id=None, code=state.code, state=state.state, capital=state.capital)
     return service.create_state(new_state)
 
 @router.get("/", response_model=List[StateResponse])
-def list_states(skip: int = 0, limit: int = 100, service: StateService = Depends(get_service)):
+def list_states(skip: int = 0, limit: int = 100, service: StateService = Depends(get_service), current_user: User = Depends(get_current_user)):
     return service.get_states(skip, limit)
 
 @router.put("/{id}", response_model=StateResponse)
@@ -58,18 +60,18 @@ def update_state(id: int, state: StateCreate, service: StateService = Depends(ge
     return result
 
 @router.delete("/delete-all")
-def delete_all_states(service: StateService = Depends(get_service)):
+def delete_all_states(service: StateService = Depends(get_service), current_user: User = Depends(get_current_user)):
     service.delete_all_states()
     return {"message": "All states deleted"}
 
 @router.delete("/{id}")
-def delete_state(id: int, service: StateService = Depends(get_service)):
+def delete_state(id: int, service: StateService = Depends(get_service), current_user: User = Depends(get_current_user)):
     if service.delete_state(id):
         return {"message": "State deleted"}
     raise HTTPException(status_code=404, detail="State not found")
 
 @router.post("/upload")
-async def upload_states(file: UploadFile = File(...), service: StateService = Depends(get_service)):
+async def upload_states(file: UploadFile = File(...), service: StateService = Depends(get_service), current_user: User = Depends(get_current_user)):
     content = await file.read()
     count = service.upload_states(content, file.filename)
     return {"message": f"Successfully uploaded {count} states"}

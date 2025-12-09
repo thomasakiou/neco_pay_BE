@@ -7,6 +7,8 @@ from app.infrastructure.repository import PaymentRepository, StaffRepository
 from app.application.payment.dtos import PaymentDTO, CreatePaymentDTO, UpdatePaymentDTO
 from app.application.payment.service import PaymentService
 from app.domain.payment import Payment
+from app.application.auth.dependencies import get_current_user
+from app.domain.user import User
 
 router = APIRouter()
 
@@ -27,11 +29,11 @@ def get_service(repo: PaymentRepository = Depends(get_repository), db: Session =
     return PaymentService(repo, db, staff_repo)
 
 @router.get("/", response_model=List[PaymentDTO])
-def list_payments(skip: int = 0, limit: int = 100000, repo: PaymentRepository = Depends(get_repository)):
+def list_payments(skip: int = 0, limit: int = 100000, repo: PaymentRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     return repo.list(skip, limit)
 
 @router.post("/", response_model=PaymentDTO)
-def create_payment(dto: CreatePaymentDTO, repo: PaymentRepository = Depends(get_repository)):
+def create_payment(dto: CreatePaymentDTO, repo: PaymentRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     payment = Payment(
         id=None,
         created_at=None,
@@ -40,14 +42,14 @@ def create_payment(dto: CreatePaymentDTO, repo: PaymentRepository = Depends(get_
     return repo.save(payment)
 
 @router.get("/{id}", response_model=PaymentDTO)
-def get_payment(id: int, repo: PaymentRepository = Depends(get_repository)):
+def get_payment(id: int, repo: PaymentRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     payment = repo.get_by_id(id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     return payment
 
 @router.put("/{id}", response_model=PaymentDTO)
-def update_payment(id: int, dto: UpdatePaymentDTO, repo: PaymentRepository = Depends(get_repository)):
+def update_payment(id: int, dto: UpdatePaymentDTO, repo: PaymentRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     payment = Payment(
         id=id,
         created_at=None,
@@ -59,12 +61,12 @@ def update_payment(id: int, dto: UpdatePaymentDTO, repo: PaymentRepository = Dep
     return updated_payment
 
 @router.delete("/", status_code=204)
-def delete_all_payments(service: PaymentService = Depends(get_service)):
+def delete_all_payments(service: PaymentService = Depends(get_service), current_user: User = Depends(get_current_user)):
     service.delete_all()
     return
 
 @router.delete("/{id}", status_code=204)
-def delete_payment(id: int, repo: PaymentRepository = Depends(get_repository)):
+def delete_payment(id: int, repo: PaymentRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
     success = repo.delete(id)
     if not success:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -73,7 +75,7 @@ def delete_payment(id: int, repo: PaymentRepository = Depends(get_repository)):
 from fastapi import File, UploadFile
 
 @router.post("/upload", status_code=201)
-async def upload_payments(file: UploadFile = File(...), service: PaymentService = Depends(get_service)):
+async def upload_payments(file: UploadFile = File(...), service: PaymentService = Depends(get_service), current_user: User = Depends(get_current_user)):
     content = await file.read()
     # Decode string
     content_str = content.decode('utf-8')

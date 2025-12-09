@@ -8,3 +8,5 @@ dbfread
 pandas
 openpyxl
 python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
