@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "requirements": "^3.0.0"
+    "requirement": "^0.0.8",
+    "requirements": "^3.0.0",
+    "uvicorn": "^0.0.1-security"
   }
 }
