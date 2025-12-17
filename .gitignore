@@ -76,3 +76,17 @@ Thumbs.db
 *.backup
 temp/
 tmp/
+.codersinflow
+.vscode
+node_modules
+.codex
+out
+dist
+*.vsix
+.claude
+CLAUDE.md
+.git
+__pycache__
+*.pyc
+.next
+.github
