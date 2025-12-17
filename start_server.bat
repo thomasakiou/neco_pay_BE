@@ -21,7 +21,7 @@
 
 
 @echo off
-cd /d "D:\Projects\Payment-App\neco-payment-manager-BE"
+cd /d "C:\apps\neco_payment_manager\neco-payment-manager-BE"
 
 REM Activate virtual environment
 call .venv\Scripts\activate.bat
