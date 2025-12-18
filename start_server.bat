@@ -19,9 +19,8 @@
 @REM pause
 
 
-
 @echo off
-cd /d "C:\apps\neco_payment_manager\neco-payment-manager-BE"
+cd /d "C:\apps\neco-payment-manager\neco-payment-manager-BE"
 
 REM Activate virtual environment
 call .venv\Scripts\activate.bat
