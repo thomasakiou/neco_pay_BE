@@ -50,13 +50,15 @@ class DistanceService:
                     return lower_row.get(key.lower())
                  
                 # Schema: PCODE, SOURCE, TCODE, TARGET, DISTANCE, TSTATE
-                # CSV aliases: State→tstate, Capital / State Office→source, Town/LGA→target, Distance→distance
+                # CSV aliases: State→tstate, Capital / State Office→source, Town/LGA→target, Distance (km)→distance
                 
                 source_val = get_val('SOURCE') or get_val('CAPITAL') or get_val('CAPITAL / STATE OFFICE') or get_val('CAPITAL/ STATE OFFICE') or get_val('CAPITAL /STATE OFFICE') or get_val('CAPITAL/STATE OFFICE')
                 target_val = get_val('TARGET') or get_val('TOWN/LGA') or get_val('TOWN/ LGA') or get_val('TOWN /LGA') or get_val('TOWN / LGA')
                 tstate_val = get_val('TSTATE') or get_val('STATE')
                 
                 dist_val = get_val('DISTANCE')
+                if dist_val is None:
+                    dist_val = get_val('DISTANCE (KM)')
                 if dist_val is not None:
                     try:
                         dist_val = float(dist_val)
