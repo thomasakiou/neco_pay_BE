@@ -80,7 +80,7 @@ class DistanceService:
                 if distance.source or distance.target:
                      distance_list.append(distance)
 
-            self.repository.bulk_save(distance_list)
+            self.repository.bulk_upsert(distance_list)
             return len(distance_list)
 
         finally:

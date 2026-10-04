@@ -230,10 +230,39 @@ class DistanceRepository:
         self.db.query(DistanceModel).delete()
         self.db.commit()
 
-    def bulk_save(self, distances: List[Distance]):
-        # Simple iteration
+    def bulk_upsert(self, distances: List[Distance]):
+        def location_key(tstate, source, target):
+            return tuple((value or "").strip().casefold() for value in (tstate, source, target))
+
+        existing_by_key = {}
+        for existing in self.db.query(DistanceModel).all():
+            key = location_key(existing.tstate, existing.source, existing.target)
+            existing_by_key.setdefault(key, []).append(existing)
+
         for distance in distances:
-            self.save(distance)
+            key = location_key(distance.tstate, distance.source, distance.target)
+            matches = existing_by_key.get(key, [])
+            if matches:
+                existing = next(
+                    (record for record in matches if record.distance is not None),
+                    matches[0],
+                )
+                for duplicate in matches:
+                    if duplicate is not existing:
+                        self.db.delete(duplicate)
+                for field in ("source", "target", "distance", "tstate"):
+                    setattr(existing, field, getattr(distance, field))
+                if distance.pcode:
+                    existing.pcode = distance.pcode
+                if distance.tcode:
+                    existing.tcode = distance.tcode
+                existing_by_key[key] = [existing]
+            else:
+                existing = DistanceModel.from_entity(distance)
+                self.db.add(existing)
+                existing_by_key[key] = [existing]
+
+        self.db.commit()
 
     def update(self, id: int, distance: Distance) -> Optional[Distance]:
         existing = self.db.query(DistanceModel).filter(DistanceModel.id == id).first()
