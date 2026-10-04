@@ -77,5 +77,10 @@ def reset_posted(repo: StaffRepository = Depends(get_repository), current_user: 
 
 @router.post("/upload")
 async def upload_staff(file: UploadFile = File(...), service: StaffService = Depends(get_service), current_user: User = Depends(get_current_user)):
-    count = await service.process_upload(file)
-    return {"message": f"Successfully processed {count} records"}
+    result = await service.process_upload(file)
+    return {
+        "message": f"Successfully processed {result['total']} records: {result['new_count']} new, {result['updated_count']} updated",
+        "new_count": result["new_count"],
+        "updated_count": result["updated_count"],
+        "total": result["total"]
+    }

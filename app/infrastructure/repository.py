@@ -59,9 +59,8 @@ class StaffRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def save(self, staff: Staff) -> Staff:
-        # Check if exists by staff_id to update or create? 
-        # For now, simple create. Ideally upsert.
+    def save(self, staff: Staff, return_is_new: bool = False):
+        """Save or update a staff record. If return_is_new is True, returns (Staff, is_new) tuple."""
         db_staff = StaffModel.from_entity(staff)
         
         # Check if exists (Upsert logic)
@@ -73,12 +72,14 @@ class StaffRepository:
                     setattr(existing, key if key != 'union' and key != 'group_code' else ('union_val' if key == 'union' else 'group_code'), value)
             self.db.commit()
             self.db.refresh(existing)
-            return existing.to_entity()
+            result = existing.to_entity()
+            return (result, False) if return_is_new else result
         
         self.db.add(db_staff)
         self.db.commit()
         self.db.refresh(db_staff)
-        return db_staff.to_entity()
+        result = db_staff.to_entity()
+        return (result, True) if return_is_new else result
 
     def get_by_id(self, id: int) -> Optional[Staff]:
         db_staff = self.db.query(StaffModel).filter(StaffModel.id == id).first()
@@ -104,12 +105,17 @@ class StaffRepository:
         self.db.query(StaffModel).delete()
         self.db.commit()
 
-    def bulk_save(self, staffs: List[Staff]):
-        # This can be optimized with bulk_insert_mappings but iterating is safer for now due to potential duplicates
-        # Or use bulk_save_objects
-        # Using a simple loop for now, optimize if slow
+    def bulk_save(self, staffs: List[Staff]) -> dict:
+        """Bulk save staff records with upsert logic. Returns counts of new and updated records."""
+        new_count = 0
+        updated_count = 0
         for staff in staffs:
-            self.save(staff) # Reusing save for upsert logic
+            _, is_new = self.save(staff, return_is_new=True)
+            if is_new:
+                new_count += 1
+            else:
+                updated_count += 1
+        return {"new_count": new_count, "updated_count": updated_count}
 
     def reset_posted_status(self):
         self.db.query(StaffModel).update({StaffModel.posted: "N"})

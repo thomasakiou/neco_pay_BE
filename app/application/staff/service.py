@@ -26,7 +26,10 @@ class StaffService:
         try:
             data = []
             if filename.lower().endswith('.csv'):
-                df = pd.read_csv(tmp_path)
+                try:
+                    df = pd.read_csv(tmp_path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(tmp_path, encoding='cp1252')
                 data = df.to_dict('records')
             elif filename.lower().endswith('.xlsx'):
                 df = pd.read_excel(tmp_path)
@@ -43,16 +46,12 @@ class StaffService:
                 # Replace nan with None
                 row = {k: (None if pd.isna(v) else v) for k, v in row.items()}
                 
-                # Map fields. Assuming headers match DBF column names (case insensitive maybe?)
-                # For now, simplistic mapping based on exact names or lower case
+                # Create a lowercase map for robust case-insensitive matching
+                lower_row = {str(k).strip().lower(): v for k, v in row.items() if k}
                 
-                # Helper to get value case-insensitively
+                # Helper to get value case-insensitively and whitespace-agnostic
                 def get_val(key):
-                    # Check upper, lower, title
-                    for k in [key, key.upper(), key.lower()]:
-                        if k in row:
-                            return row[k]
-                    return None
+                    return lower_row.get(key.lower())
 
                 # Handle Dates
                 # DBF dates come as Date objects. CSV/Excel might be strings.
@@ -67,24 +66,28 @@ class StaffService:
                 
                 staff = Staff(
                     id=None, # Auto-gen
-                    staff_id=str(get_val('PER_NO') or get_val('staff_id')),
+                    staff_id=str(get_val('PER_NO') or get_val('staff_id') or get_val('FILE_NO') or get_val('FILE NO')),
                     surname=str(get_val('SURNAME') or ''),
                     firstname=str(get_val('FIRSTNAME') or ''),
-                    middlename=str(get_val('MIDDLENAME')),
+                    middlename=str(get_val('MIDDLENAME') or ''),
                     res=get_val('RES'),
                     tcheck=get_val('TCHECK'),
                     dup=get_val('DUP'),
                     dcode=get_val('DCODE'),
-                    name1=get_val('NAME1'),
-                    name=get_val('NAME'),
-                    department=get_val('DEPARTMENT'),
-                    location=get_val('LOCATION'),
+                    name1=get_val('NAME1') or get_val('FULL NAME'),
+                    name=get_val('NAME') or get_val('FULL NAME'),
+                    department=get_val('DEPARTMENT') or get_val('STATION'),
+                    location=(lambda dept: (
+                        'Minna(HQ)' if dept and 'HQ' in dept.upper() else
+                        {'NC': 'Ilorin', 'NE': 'Bauchi', 'NW': 'Kano', 'SS': 'P/Harcourt', 'SW': 'Ibadan', 'SE': 'Enugu'}.get(dept.upper().split('-')[0], None) if dept and '-' in dept else
+                        None
+                    ) or get_val('LOCATION') or get_val('STATION'))(str(get_val('DEPARTMENT') or get_val('STATION') or '')),
                     state=get_val('STATE'),
                     div=get_val('DIV'),
                     union=get_val('UNION'),
                     post=get_val('POST'),
                     status=get_val('STATUS'),
-                    posted=get_val('POSTED'),
+                    posted=get_val('POSTED') or 'N',
                     bank=get_val('BANK'),
                     tt=get_val('TT'),
                     mcs_no=get_val('MCS_NO'),
@@ -97,7 +100,7 @@ class StaffService:
                     rank2=get_val('RANK2'),
                     rank3=get_val('RANK3'),
                     contiss=get_val('CONTISS'),
-                    level=get_val('LEVEL'),
+                    level=get_val('LEVEL') or get_val('CONR') or get_val('CONRAISS'),
                     step=get_val('STEP'),
                     oldcontiss=get_val('OLDCONTISS'),
                     oldstep=get_val('OLDSTEP'),
@@ -124,8 +127,12 @@ class StaffService:
                 if staff.staff_id and staff.staff_id != 'None':
                     staff_list.append(staff)
 
-            self.repository.bulk_save(staff_list)
-            return len(staff_list)
+            result = self.repository.bulk_save(staff_list)
+            return {
+                "new_count": result["new_count"],
+                "updated_count": result["updated_count"],
+                "total": len(staff_list)
+            }
 
         finally:
             if os.path.exists(tmp_path):

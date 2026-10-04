@@ -24,7 +24,10 @@ class DistanceService:
         try:
             data = []
             if filename.lower().endswith('.csv'):
-                df = pd.read_csv(tmp_path)
+                try:
+                    df = pd.read_csv(tmp_path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(tmp_path, encoding='cp1252')
                 data = df.to_dict('records')
             elif filename.lower().endswith('.xlsx'):
                 df = pd.read_excel(tmp_path)
@@ -40,13 +43,18 @@ class DistanceService:
                 # Normalization
                 row = {k: (None if pd.isna(v) else v) for k, v in row.items()}
                 
+                # Case-insensitive + whitespace-agnostic lookup
+                lower_row = {str(k).strip().lower(): v for k, v in row.items() if k}
+                
                 def get_val(key):
-                    for k in [key, key.upper(), key.lower()]:
-                        if k in row:
-                            return row[k]
-                    return None
+                    return lower_row.get(key.lower())
                  
                 # Schema: PCODE, SOURCE, TCODE, TARGET, DISTANCE, TSTATE
+                # CSV aliases: State→tstate, Capital / State Office→source, Town/LGA→target, Distance→distance
+                
+                source_val = get_val('SOURCE') or get_val('CAPITAL') or get_val('CAPITAL / STATE OFFICE') or get_val('CAPITAL/ STATE OFFICE') or get_val('CAPITAL /STATE OFFICE') or get_val('CAPITAL/STATE OFFICE')
+                target_val = get_val('TARGET') or get_val('TOWN/LGA') or get_val('TOWN/ LGA') or get_val('TOWN /LGA') or get_val('TOWN / LGA')
+                tstate_val = get_val('TSTATE') or get_val('STATE')
                 
                 dist_val = get_val('DISTANCE')
                 if dist_val is not None:
@@ -57,17 +65,17 @@ class DistanceService:
 
                 distance = Distance(
                     id=None,
-                    pcode=str(get_val('PCODE') or get_val('pcode')),
-                    source=str(get_val('SOURCE') or get_val('source')),
-                    tcode=str(get_val('TCODE') or get_val('tcode')),
-                    target=str(get_val('TARGET') or get_val('target')),
+                    pcode=str(get_val('PCODE') or ''),
+                    source=str(source_val or ''),
+                    tcode=str(get_val('TCODE') or ''),
+                    target=str(target_val or ''),
                     distance=dist_val,
-                    tstate=str(get_val('TSTATE') or get_val('tstate')),
+                    tstate=str(tstate_val or ''),
                     active=True,
                     created_at=None
                 )
                 
-                if distance.pcode or distance.source:
+                if distance.source or distance.target:
                      distance_list.append(distance)
 
             self.repository.bulk_save(distance_list)
