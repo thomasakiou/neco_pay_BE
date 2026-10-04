@@ -37,10 +37,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Payment Manager API", lifespan=lifespan)
 
+# app = FastAPI()
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
-    
+
 # Import routers
 from app.api.endpoints import payment, staff, bank, distance, parameter, posting, state, auth
 
