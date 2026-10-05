@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import SessionLocal
@@ -26,8 +26,12 @@ def get_service(repo: PostingRepository = Depends(get_repository)):
     return PostingService(repo)
 
 @router.get("/", response_model=List[PostingDTO])
-def list_postings(skip: int = 0, limit: int = 100000, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
-    return repo.list(skip, limit)
+def list_postings(skip: int = 0, limit: int = 100000, batch_name: Optional[str] = None, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
+    return repo.list(skip, limit, batch_name)
+
+@router.get("/batches", response_model=List[str])
+def list_batches(repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
+    return repo.list_batches()
 
 @router.post("/", response_model=PostingDTO)
 def create_posting(dto: CreatePostingDTO, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
@@ -47,14 +51,13 @@ def get_posting(id: int, repo: PostingRepository = Depends(get_repository), curr
 
 @router.put("/{id}", response_model=PostingDTO)
 def update_posting(id: int, dto: UpdatePostingDTO, repo: PostingRepository = Depends(get_repository), current_user: User = Depends(get_current_user)):
-    posting = Posting(
-        id=id,
-        created_at=None,
-        **dto.dict(exclude_unset=True)
-    )
-    updated_posting = repo.update(id, posting)
-    if not updated_posting:
+    existing = repo.get_by_id(id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Posting not found")
+    updated_fields = dto.dict(exclude_unset=True)
+    for field, value in updated_fields.items():
+        setattr(existing, field, value)
+    updated_posting = repo.update(id, existing)
     return updated_posting
 
 @router.delete("/", status_code=204)
@@ -70,8 +73,11 @@ def delete_posting(id: int, repo: PostingRepository = Depends(get_repository), c
     return
 
 @router.post("/upload")
-async def upload_postings(file: UploadFile = File(...), service: PostingService = Depends(get_service), current_user: User = Depends(get_current_user)):
-    count = await service.process_upload(file)
+async def upload_postings(file: UploadFile = File(...), batch_name: str = "", service: PostingService = Depends(get_service), current_user: User = Depends(get_current_user)):
+    try:
+        count = await service.process_upload(file, batch_name or file.filename)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"message": f"Successfully processed {count} records"}
 
 @router.post("/generate", status_code=201)

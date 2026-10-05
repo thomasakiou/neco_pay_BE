@@ -8,12 +8,9 @@ class PostingBase(BaseModel):
     name: Optional[str] = None
     conraiss: Optional[str] = None
     station: Optional[str] = None
-    posting: Optional[str] = None # Maps to 'Posted To'
-    
-    # state: Optional[str] = None
-    # category: Optional[str] = None
-    # rank: Optional[str] = None
-    # mandate: Optional[str] = None
+    posting: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    batch_name: Optional[str] = None
     active: bool = True
 
 class CreatePostingDTO(PostingBase):

@@ -11,10 +11,7 @@ class Posting:
     conraiss: Optional[str] = None
     station: Optional[str] = None
     posting: Optional[str] = None
-    # Optional fields that might be null in new schema
-    # state: Optional[str] = None
-    # category: Optional[str] = None
-    # rank: Optional[str] = None
-    # mandate: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    batch_name: Optional[str] = None
     active: bool = True
     created_at: Optional[datetime] = None

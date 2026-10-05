@@ -71,5 +71,15 @@ def delete_parameter(id: int, repo: ParameterRepository = Depends(get_repository
 
 @router.post("/upload")
 async def upload_parameters(file: UploadFile = File(...), service: ParameterService = Depends(get_service), current_user: User = Depends(get_current_user)):
-    count = await service.process_upload(file)
-    return {"message": f"Successfully processed {count} records"}
+    try:
+        result = await service.process_upload(file)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    created_count = result["created_count"]
+    updated_count = result["updated_count"]
+    return {
+        "message": f"Imported {created_count} new and updated {updated_count} existing parameters.",
+        "created_count": created_count,
+        "updated_count": updated_count,
+    }

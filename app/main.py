@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from sqlalchemy import inspect, text
 from app.infrastructure.database import engine, SessionLocal
 from app.infrastructure import models
 from app.infrastructure.user_repository import UserRepository
@@ -10,6 +11,10 @@ from app.domain.user import User
 async def lifespan(app: FastAPI):
     # Startup: Create tables and seed admin user
     models.Base.metadata.create_all(bind=engine)
+    posting_columns = {column["name"] for column in inspect(engine).get_columns("posting")}
+    with engine.begin() as connection:
+        if "no_of_nights" not in posting_columns:
+            connection.execute(text("ALTER TABLE posting ADD COLUMN no_of_nights INTEGER"))
     
     # Seed admin user if not exists
     db = SessionLocal()
@@ -44,7 +49,7 @@ def health():
     return {"status": "ok"}
 
 # Import routers
-from app.api.endpoints import payment, staff, bank, distance, parameter, posting, state, auth
+from app.api.endpoints import payment, staff, bank, distance, parameter, posting, state, auth, location_mapping
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
@@ -54,4 +59,5 @@ app.include_router(bank.router, prefix="/banks", tags=["banks"])
 app.include_router(distance.router, prefix="/distances", tags=["distances"])
 app.include_router(parameter.router, prefix="/parameters", tags=["parameters"])
 app.include_router(posting.router, prefix="/postings", tags=["postings"])
+app.include_router(location_mapping.router, prefix="/location-mappings", tags=["location mappings"])
 app.include_router(state.router, prefix="/states", tags=["states"])

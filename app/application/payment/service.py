@@ -70,6 +70,15 @@ class PaymentService:
 
         new_payments = []
         for row in reader:
+            fuel = get_field(row, 'Fuel')
+            local_runs = get_field(row, ['Local_Runs', 'Local Runs', 'Local'])
+            if fuel is not None or local_runs is not None:
+                fuel_local = safe_float(fuel) + safe_float(local_runs)
+            else:
+                fuel_local = safe_float(
+                    get_field(row, ['Fuel-Local', 'Fuel_Local', 'Fuel Local', 'Local_Runs', 'Local Runs'])
+                )
+
             payment = Payment(
                 id=None,
                 file_no=get_field(row, ['File_No', 'File No', 'Staff_ID']),
@@ -85,7 +94,7 @@ class PaymentService:
                 bank=get_field(row, 'Bank'),
                 account_numb=get_field(row, ['Account_Numb', 'Account_Number', 'Account_No', 'Account No']),
                 tax=safe_float(get_field(row, 'Tax')),
-                fuel_local=safe_float(get_field(row, ['Fuel-Local', 'Fuel_Local', 'Fuel Local', 'Local_Runs', 'Local Runs'])),
+                fuel_local=fuel_local,
                 station=get_field(row, 'Station'),
                 posting=get_field(row, 'Posting'),
                 created_at=None

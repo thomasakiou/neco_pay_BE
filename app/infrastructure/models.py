@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from app.domain.payment import Payment
@@ -408,30 +408,26 @@ class PostingModel(Base):
     __tablename__ = "posting"
 
     id = Column(Integer, primary_key=True, index=True)
-    # state = Column(String, nullable=True)
     file_no = Column(String, nullable=True)
     name = Column(String, nullable=True)
     conraiss = Column(String, nullable=True)
     station = Column(String, nullable=True)
     posting = Column(String, nullable=True)
-    # category = Column(String, nullable=True) # Unused
-    # rank = Column(String, nullable=True) # Unused
-    # mandate = Column(String, nullable=True) # Unused
+    no_of_nights = Column(Integer, nullable=True)
+    batch_name = Column(String, nullable=True, index=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     def to_entity(self) -> Posting:
         return Posting(
             id=self.id,
-            # state=self.state,
             file_no=self.file_no,
             name=self.name,
             conraiss=self.conraiss,
             station=self.station,
             posting=self.posting,
-            # category=self.category, # Fields from old CSV might be null now
-            # rank=self.rank,
-            # mandate=self.mandate,
+            no_of_nights=self.no_of_nights,
+            batch_name=self.batch_name,
             active=self.active,
             created_at=self.created_at
         )
@@ -440,18 +436,28 @@ class PostingModel(Base):
     def from_entity(posting: Posting) -> "PostingModel":
         return PostingModel(
             id=posting.id,
-            # state=posting.state,
             file_no=posting.file_no,
             name=posting.name,
             conraiss=posting.conraiss,
             station=posting.station,
             posting=posting.posting,
-            # category=posting.category,
-            # rank=posting.rank,
-            # mandate=posting.mandate,
+            no_of_nights=posting.no_of_nights,
+            batch_name=posting.batch_name,
             active=posting.active,
             created_at=posting.created_at
         )
+
+class LocationMappingModel(Base):
+    __tablename__ = "location_mapping"
+    __table_args__ = (
+        UniqueConstraint("field_type", "original_value", name="uq_location_mapping_field_original"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    field_type = Column(String, nullable=False)
+    original_value = Column(String, nullable=False)
+    canonical_value = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 from app.domain.state import State
 

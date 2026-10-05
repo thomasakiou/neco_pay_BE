@@ -11,7 +11,7 @@ class PostingService:
     def __init__(self, repository: PostingRepository):
         self.repository = repository
 
-    async def process_upload(self, file: UploadFile) -> int:
+    async def process_upload(self, file: UploadFile, batch_name: str) -> int:
         filename = file.filename
         content = await file.read()
         
@@ -20,10 +20,15 @@ class PostingService:
             tmp_path = tmp.name
 
         try:
+            def read_csv(**kwargs):
+                try:
+                    return pd.read_csv(tmp_path, encoding='utf-8-sig', **kwargs)
+                except UnicodeDecodeError:
+                    return pd.read_csv(tmp_path, encoding='cp1252', **kwargs)
 
             # 1. Read file to find header
             if filename.lower().endswith('.csv'):
-                df_raw = pd.read_csv(tmp_path, header=None)
+                df_raw = read_csv(header=None)
             elif filename.lower().endswith('.xlsx') or filename.lower().endswith('.xls'):
                 df_raw = pd.read_excel(tmp_path, header=None)
             else:
@@ -42,13 +47,13 @@ class PostingService:
             if header_idx != -1:
                 # Reload with header, skip rows before header
                 if filename.lower().endswith('.csv'):
-                    df = pd.read_csv(tmp_path, header=header_idx)
+                    df = read_csv(header=header_idx)
                 else:
                     df = pd.read_excel(tmp_path, header=header_idx)
             else:
                 # Fallback: assume first row is header if not found (or fail? let's try 0)
                 if filename.lower().endswith('.csv'):
-                   df = pd.read_csv(tmp_path)
+                   df = read_csv()
                 else:
                    df = pd.read_excel(tmp_path)
 
@@ -73,6 +78,8 @@ class PostingService:
                         candidates = ['FILE NO', 'FILE No', 'File No', 'File_No', 'FILE_NO'] + candidates
                     if target_key == 'posting':
                         candidates = ['Posted To', 'posted to', 'POSTED TO'] + candidates
+                    if target_key == 'no_of_nights':
+                        candidates = ['No_of_nights', 'NO_OF_NIGHTS', 'No of nights', 'Number of Nights'] + candidates
                     
                     for cand in candidates:
                         cand_upper = str(cand).strip().upper()
@@ -80,20 +87,26 @@ class PostingService:
                              return row_normalized[cand_upper]
                     return None
 
+                nights_value = get_val('no_of_nights')
+                no_of_nights = None
+                if nights_value is not None and str(nights_value).strip():
+                    try:
+                        nights_number = float(nights_value)
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("No_of_nights values must be non-negative whole numbers.") from error
+                    if not nights_number.is_integer() or nights_number < 0:
+                        raise ValueError("No_of_nights values must be non-negative whole numbers.")
+                    no_of_nights = int(nights_number)
+
                 posting = Posting(
                     id=None,
-                    # state=None, # Dropped
                     file_no=str(get_val('file_no') or ''),
                     name=str(get_val('name') or ''),
                     conraiss=str(get_val('conraiss') or ''),
                     station=str(get_val('station') or ''),
-                    posting=str(get_val('posting') or ''), # Maps from 'Posted To'
-                    
-                    # Dropped fields
-                    # category=None,
-                    # rank=None,
-                    # mandate=None,
-                    
+                    posting=str(get_val('posting') or ''),
+                    no_of_nights=no_of_nights,
+                    batch_name=batch_name,
                     active=True,
                     created_at=None
                 )
@@ -117,7 +130,7 @@ class PostingService:
         Generate payments based on posting data.
         This method has the same logic as PaymentService.generate_payments
         """
-        from app.infrastructure.models import StaffModel, ParameterModel, DistanceModel, PaymentModel
+        from app.infrastructure.models import StaffModel, ParameterModel, DistanceModel, LocationMappingModel
         from app.domain.payment import Payment
         from sqlalchemy.orm import Session
         
@@ -128,6 +141,7 @@ class PostingService:
         parameters = db.query(ParameterModel).all()
         distances = db.query(DistanceModel).all()
         staff_list = db.query(StaffModel).all()
+        location_mappings = db.query(LocationMappingModel).all()
         
         # Create lookup maps for performance
         staff_map = {s.staff_id: s for s in staff_list if s.staff_id}
@@ -144,6 +158,11 @@ class PostingService:
         for d in distances:
             if d.source and d.target:
                 dist_map[(d.source.strip().lower(), d.target.strip().lower())] = d
+
+        location_map = {
+            (mapping.field_type, mapping.original_value.strip().casefold()): mapping.canonical_value
+            for mapping in location_mappings
+        }
         
         new_payments = []
         
@@ -153,6 +172,7 @@ class PostingService:
             
             per_no = staff.staff_id if staff else None
             bank_account = staff.account_no if staff else None
+            bank_name = staff.bank_name if staff else None
             
             # 2. Get Amount Per Night
             amount_per_night = 0.0
@@ -170,8 +190,14 @@ class PostingService:
             distance_val = 0.0
             
             if posting.station and posting.posting:
-                source = posting.station.strip().lower()
-                target = posting.posting.strip().lower()
+                source = location_map.get(
+                    ("station", posting.station.strip().casefold()),
+                    posting.station.strip(),
+                ).lower()
+                target = location_map.get(
+                    ("posted_to", posting.posting.strip().casefold()),
+                    posting.posting.strip(),
+                ).lower()
                 
                 dist_obj = dist_map.get((source, target))
                 if dist_obj:
@@ -179,21 +205,27 @@ class PostingService:
             
             transport = km_rate * distance_val
             
+            staff_nights = numb_of_nights + (posting.no_of_nights or 0)
+
             # 4. NetPay
-            netpay = transport + local_runs + (numb_of_nights * amount_per_night)
+            netpay = transport + local_runs + (staff_nights * amount_per_night)
 
             payment = Payment(
                 id=None,
-                per_no=per_no,
+                file_no=per_no,
                 name=posting.name,
+                conraiss=posting.conraiss,
+                bank=bank_name,
+                account_numb=bank_account,
                 station=posting.station,
                 posting=posting.posting,
-                bank_account=bank_account,
                 transport=transport,
-                local_runs=local_runs,
-                numb_of_nights=numb_of_nights,
+                fuel_local=local_runs,
+                numb_of_nights=staff_nights,
                 amount_per_night=amount_per_night,
-                netpay=netpay,
+                dta=staff_nights * amount_per_night,
+                total=netpay,
+                total_netpay=netpay,
                 payment_title=payment_title,
                 created_at=None
             )

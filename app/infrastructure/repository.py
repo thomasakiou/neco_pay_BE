@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 from app.domain.payment import Payment
 from app.application.interfaces import IPaymentRepository
@@ -311,9 +312,37 @@ class ParameterRepository:
         self.db.query(ParameterModel).delete()
         self.db.commit()
 
-    def bulk_save(self, parameters: List[Parameter]):
+    def bulk_save(self, parameters: List[Parameter]) -> dict:
+        existing_parameters = self.db.query(ParameterModel).all()
+        parameters_by_contiss = {
+            (parameter.contiss or "").strip().casefold(): parameter
+            for parameter in existing_parameters
+            if parameter.contiss
+        }
+        created_count = 0
+        updated_count = 0
+
         for parameter in parameters:
-            self.save(parameter)
+            key = (parameter.contiss or "").strip().casefold()
+            existing = parameters_by_contiss.get(key)
+            if existing:
+                existing.pernight = parameter.pernight
+                existing.local = parameter.local
+                existing.kilometer = parameter.kilometer
+                updated_count += 1
+            else:
+                db_parameter = ParameterModel.from_entity(parameter)
+                self.db.add(db_parameter)
+                parameters_by_contiss[key] = db_parameter
+                created_count += 1
+
+        try:
+            self.db.commit()
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
+
+        return {"created_count": created_count, "updated_count": updated_count}
 
     def update(self, id: int, parameter: Parameter) -> Optional[Parameter]:
         existing = self.db.query(ParameterModel).filter(ParameterModel.id == id).first()
@@ -346,9 +375,15 @@ class PostingRepository:
         db_posting = self.db.query(PostingModel).filter(PostingModel.id == id).first()
         return db_posting.to_entity() if db_posting else None
 
-    def list(self, skip: int = 0, limit: int = 100) -> List[Posting]:
-        db_postings = self.db.query(PostingModel).offset(skip).limit(limit).all()
-        return [p.to_entity() for p in db_postings]
+    def list(self, skip: int = 0, limit: int = 100, batch_name: Optional[str] = None) -> List[Posting]:
+        q = self.db.query(PostingModel)
+        if batch_name:
+            q = q.filter(PostingModel.batch_name == batch_name)
+        return [p.to_entity() for p in q.offset(skip).limit(limit).all()]
+
+    def list_batches(self) -> List[str]:
+        rows = self.db.query(PostingModel.batch_name).filter(PostingModel.batch_name.isnot(None)).distinct().all()
+        return [r[0] for r in rows]
 
     def delete(self, id: int) -> bool:
         db_posting = self.db.query(PostingModel).filter(PostingModel.id == id).first()
@@ -370,11 +405,9 @@ class PostingRepository:
         existing = self.db.query(PostingModel).filter(PostingModel.id == id).first()
         if not existing:
             return None
-        
         for key, value in posting.__dict__.items():
             if key != 'id' and key != 'created_at':
                 setattr(existing, key, value)
-        
         self.db.commit()
         self.db.refresh(existing)
         return existing.to_entity()
