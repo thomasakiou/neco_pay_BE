@@ -6,6 +6,7 @@ from fastapi import UploadFile
 
 from app.domain.posting import Posting
 from app.infrastructure.repository import PostingRepository
+from app.application.location_mapping.resolver import resolve_station_office_code
 
 class PostingService:
     def __init__(self, repository: PostingRepository):
@@ -190,9 +191,15 @@ class PostingService:
             distance_val = 0.0
             
             if posting.station and posting.posting:
-                source = location_map.get(
-                    ("station", posting.station.strip().casefold()),
-                    posting.station.strip(),
+                source = (
+                    resolve_station_office_code(
+                        posting.station,
+                        [distance.source for distance in distances],
+                    )
+                    or location_map.get(
+                        ("station", posting.station.strip().casefold()),
+                        posting.station.strip(),
+                    )
                 ).lower()
                 target = location_map.get(
                     ("posted_to", posting.posting.strip().casefold()),
